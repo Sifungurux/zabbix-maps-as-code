@@ -1,0 +1,48 @@
+---
+# Installs Zabbix server (+ MariaDB) on the Lima VM.
+#
+# The ansible-zabbix role's repo task does `curl ... | tail -1` which picks
+# the newest .deb in the directory — currently ubuntu26.04. The VM is Ubuntu
+# 24.04 so that package has unresolvable deps. We install the correct repo
+# package ourselves in pre_tasks and skip the role's repo task with
+# --skip-tags repo (set in run.sh).
+#
+# run.sh sets ANSIBLE_ROLES_PATH=$HOME/development before calling this.
+
+- name: Install Zabbix server on Lima VM
+  hosts: ZABBIX_SERVER
+  become: true
+  gather_facts: true
+
+  vars:
+    zabbix_function:       server
+    zabbix_version:        "7.4"
+    db_backend:            mysql
+    db_pass:               "zabbix"
+    zabbix_db:             zabbix
+    zabbix_user:           zabbix
+    zabbix_pass:           zabbix
+    zabbix_admin_password: zabbix
+
+  pre_tasks:
+    - name: Install apt prerequisites
+      ansible.builtin.apt:
+        name: curl
+        state: present
+
+    - name: Remove any mismatched Zabbix release package (may be wrong Ubuntu version)
+      ansible.builtin.apt:
+        name: zabbix-release
+        state: absent
+      ignore_errors: true
+
+    - name: Install Zabbix {{ zabbix_version }} repo package for Ubuntu {{ ansible_distribution_version }}
+      ansible.builtin.apt:
+        deb: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/release/ubuntu/pool/main/z/zabbix-release/zabbix-release_{{ zabbix_version }}-1+ubuntu{{ ansible_distribution_version }}_all.deb"
+
+    - name: Update apt cache after adding Zabbix repo
+      ansible.builtin.apt:
+        update_cache: true
+
+  roles:
+    - role: ansible-zabbix

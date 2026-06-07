@@ -1,0 +1,90 @@
+---
+# Creates the Zabbix host objects referenced in map_hosts.yaml.
+# Uses httpapi (the pattern from ansible-zabbix) — run against ZABBIX_API group.
+# zabbix_server_ip must be passed on the command line: -e zabbix_server_ip=X.X.X.X
+
+- name: Register test hosts in Zabbix
+  hosts: ZABBIX_API
+  gather_facts: false
+
+  tasks:
+    - name: Ensure host groups exist
+      community.zabbix.zabbix_group:
+        host_groups:
+          - "Linux servers"
+          - "Zabbix servers"
+          - "Zabbix proxy groups"
+          - "Virtual IPs"
+        state: present
+
+    # Real hosts — point at the Lima VM IP so Zabbix can reach them
+    - name: Register db-zabbix-01 (simulated PostgreSQL host)
+      community.zabbix.zabbix_host:
+        host_name:    "db-zabbix-01"
+        visible_name: "PostgreSQL (test)"
+        host_groups:
+          - "Linux servers"
+        link_templates:
+          - "Linux by Zabbix agent"
+        interfaces:
+          - type:  agent
+            main:  true
+            useip: true
+            ip:    "{{ zabbix_server_ip }}"
+            dns:   ""
+            port:  "10050"
+        status: enabled
+        state:  present
+
+    - name: Register zabbix-server-01
+      community.zabbix.zabbix_host:
+        host_name:    "zabbix-server-01"
+        visible_name: "Zabbix Server (test)"
+        host_groups:
+          - "Zabbix servers"
+        link_templates:
+          - "Zabbix server health"
+        interfaces:
+          - type:  agent
+            main:  true
+            useip: true
+            ip:    "{{ zabbix_server_ip }}"
+            dns:   ""
+            port:  "10050"
+        status: enabled
+        state:  present
+
+    # Proxy group dummy hosts — no interfaces, represent proxy groups on the map
+    - name: Register proxy group dummy hosts
+      community.zabbix.zabbix_host:
+        host_name:    "{{ item.host }}"
+        visible_name: "{{ item.label }}"
+        host_groups:
+          - "Zabbix proxy groups"
+        status: enabled
+        state:  present
+      loop:
+        - { host: "proxy-group-cph", label: "Proxy Group CPH" }
+        - { host: "proxy-group-aar", label: "Proxy Group AAR" }
+
+    # VIP dummy hosts — ICMP interface at non-routable test IPs (will always be down)
+    - name: Register VIP dummy hosts
+      community.zabbix.zabbix_host:
+        host_name:    "{{ item.host }}"
+        visible_name: "{{ item.label }}"
+        host_groups:
+          - "Virtual IPs"
+        link_templates:
+          - "ICMP Ping"
+        interfaces:
+          - type:  agent
+            main:  true
+            useip: true
+            ip:    "{{ item.ip }}"
+            dns:   ""
+            port:  "10050"
+        status: enabled
+        state:  present
+      loop:
+        - { host: "vip-lb-prod",  label: "VIP LB Prod",  ip: "10.0.0.10" }
+        - { host: "vip-api-prod", label: "VIP API Prod",  ip: "10.0.0.11" }

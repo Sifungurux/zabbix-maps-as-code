@@ -1,0 +1,48 @@
+# Map topology for the blog post test.
+# Host names here must match what setup_test_hosts.yml registers in Zabbix.
+
+maps:
+  - name: "Zabbix Infrastructure"
+    width: 1400
+    height: 800
+    nodes:
+      - name: "PostgreSQL"
+        type: host
+        zbx_ref: "db-zabbix-01"
+        icon_default: "Disk_array_3D_(64)"
+        icon_problem: "Disk_array_3D_(64)"
+
+      - name: "Zabbix Server"
+        type: host
+        zbx_ref: "zabbix-server-01"
+        icon_default: "Server_(64)"
+        icon_problem: "Server_(64)"
+
+      - name: "Proxy Group CPH"
+        type: host
+        zbx_ref: "proxy-group-cph"
+        icon_default: "Server_(48)"
+        icon_problem: "Server_(48)"
+
+      - name: "Proxy Group AAR"
+        type: host
+        zbx_ref: "proxy-group-aar"
+        icon_default: "Server_(48)"
+        icon_problem: "Server_(48)"
+
+    links:
+      - from: "PostgreSQL"
+        to: "Zabbix Server"
+        label: "5432"
+        draw_style: bold
+        color: "#0066CC"
+
+      - from: "Zabbix Server"
+        to: "Proxy Group CPH"
+        label: "10051"
+        color: "#00AA00"
+
+      - from: "Zabbix Server"
+        to: "Proxy Group AAR"
+        label: "10051"
+        color: "#00AA00"

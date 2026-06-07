@@ -1,0 +1,62 @@
+---
+# Part 2 — custom module (library/zabbix_map_from_yaml.py)
+# Runs against localhost (connection: local) — no ZABBIX_API inventory group needed.
+# Credentials come from group_vars/all/zabbix.yml (written by run.sh).
+
+- name: Create Zabbix network maps using custom module
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    maps_file: "{{ playbook_dir }}/maps_custom.yaml"
+    map_name: ""
+    update: false
+
+  tasks:
+    - name: Load map definitions
+      ansible.builtin.include_vars:
+        file: "{{ maps_file }}"
+        name: maps_config
+
+    - name: Assert at least one map is defined
+      ansible.builtin.assert:
+        that: maps_config.maps | length > 0
+        fail_msg: "No maps found in {{ maps_file }}"
+
+    - name: Filter maps
+      ansible.builtin.set_fact:
+        maps_to_process: >-
+          {{
+            maps_config.maps
+            if not map_name
+            else maps_config.maps
+                 | selectattr('name', 'equalto', map_name)
+                 | list
+          }}
+
+    - name: Fail if filter matched nothing
+      ansible.builtin.fail:
+        msg: "No map named '{{ map_name }}' found in {{ maps_file }}"
+      when: map_name | length > 0 and maps_to_process | length == 0
+
+    - name: Create or update Zabbix maps
+      zabbix_map_from_yaml:
+        url:            "{{ zabbix_url }}"
+        login_user:     "{{ zabbix_user      | default(omit, true) }}"
+        login_password: "{{ zabbix_password  | default(omit, true) }}"
+        map_definition: "{{ item }}"
+        state:          present
+        update:         "{{ update | bool }}"
+        validate_certs: "{{ zabbix_validate_certs | default(true) }}"
+      loop: "{{ maps_to_process }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: map_results
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: "{{ item.msg }}"
+      loop: "{{ map_results.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"

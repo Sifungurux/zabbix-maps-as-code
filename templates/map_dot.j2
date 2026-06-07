@@ -1,0 +1,13 @@
+graph {
+{% for node in current_map.nodes %}
+  "{{ node.name }}" [{% if node.type | default('host') == 'host' %}zbx_host="{{ node.zbx_ref }}"{% elif node.type == 'map' %}zbx_sysmap="{{ node.zbx_ref }}"{% elif node.type == 'group' %}zbx_group="{{ node.zbx_ref }}"{% endif %}
+                   zbx_image_default="{{ node.icon_default }}"
+                   zbx_image_problem="{{ node.icon_problem | default(node.icon_default) }}"]
+
+{% endfor %}
+  "__workaround__"
+
+{% for link in current_map.links %}
+  "{{ link.from }}" -- "{{ link.to }}" [{% if link.label is defined %}label="{{ link.label }}" {% endif %}{% if link.draw_style is defined %}zbx_draw_style={{ link.draw_style }} {% endif %}zbx_color="{{ link.color | default('#000000') }}"]
+{% endfor %}
+}

@@ -1,0 +1,65 @@
+maps:
+
+  - name: "Zabbix Infrastructure (Custom)"
+    width: 1400
+    height: 700
+    label_type: 0
+    elements:
+      - id: postgresql
+        type: host
+        host: "db-zabbix-01"
+        label: "PostgreSQL"
+        x: 660
+        y: 60
+        icon:
+          default: "Disk_array_3D_(64)"
+          problem: "Disk_array_3D_(64)"
+
+      - id: zabbix_server
+        type: host
+        host: "zabbix-server-01"
+        label: "Zabbix Server"
+        x: 660
+        y: 280
+        icon:
+          default: "Server_(64)"
+          problem: "Server_(64)"
+
+      - id: pg_cph
+        type: host
+        host: "proxy-group-cph"
+        label: "Proxy Group CPH"
+        x: 340
+        y: 520
+        icon:
+          default: "Server_(48)"
+          problem: "Server_(48)"
+
+      - id: pg_aar
+        type: host
+        host: "proxy-group-aar"
+        label: "Proxy Group AAR"
+        x: 980
+        y: 520
+        icon:
+          default: "Server_(48)"
+          problem: "Server_(48)"
+
+    links:
+      - from: postgresql
+        to: zabbix_server
+        label: "5432"
+        color: "0066CC"
+        drawtype: bold
+
+      - from: zabbix_server
+        to: pg_cph
+        label: "10051"
+        color: "00AA00"
+        drawtype: line
+
+      - from: zabbix_server
+        to: pg_aar
+        label: "10051"
+        color: "00AA00"
+        drawtype: line

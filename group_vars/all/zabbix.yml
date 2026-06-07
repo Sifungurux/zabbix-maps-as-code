@@ -1,0 +1,6 @@
+# URL for community.zabbix.zabbix_map module_defaults (legacy auth pattern).
+# Standard Debian/Ubuntu Zabbix install puts the API at /zabbix/api_jsonrpc.php.
+zabbix_url:            "http://192.168.105.9/zabbix"
+zabbix_user:           "Admin"
+zabbix_password:       "zabbix"
+zabbix_validate_certs: false

@@ -1,0 +1,61 @@
+---
+# Part 1 — community.zabbix.zabbix_map with Jinja2 template
+#
+# community.zabbix >= 4.x uses httpapi exclusively — the old server_url /
+# login_user / login_password module_defaults pattern is gone. Authentication
+# is handled by the ZABBIX_API inventory group vars (ansible_connection=httpapi).
+
+- name: Create Zabbix network maps from topology data
+  hosts: ZABBIX_API
+  gather_facts: false
+
+  vars:
+    maps_file: "{{ playbook_dir }}/map_hosts.yaml"
+    map_name: ""
+
+  tasks:
+    - name: Load map topology
+      ansible.builtin.include_vars:
+        file: "{{ maps_file }}"
+        name: maps_config
+
+    - name: Filter maps
+      ansible.builtin.set_fact:
+        maps_to_process: >-
+          {{
+            maps_config.maps
+            if not map_name
+            else maps_config.maps | selectattr('name', 'equalto', map_name) | list
+          }}
+
+    - name: Delete existing maps (clean slate on re-runs)
+      community.zabbix.zabbix_map:
+        name:  "{{ item.name }}"
+        state: absent
+      loop: "{{ maps_to_process }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Create maps from topology via Jinja2 template
+      community.zabbix.zabbix_map:
+        name:           "{{ item.name }}"
+        width:          "{{ item.width  | default(1200) }}"
+        height:         "{{ item.height | default(800)  }}"
+        state:          present
+        data:           "{{ lookup('template', playbook_dir + '/templates/map_dot.j2') }}"
+        default_image:  "Server_(48)"
+        expand_problem: true
+        label_type:     label
+      vars:
+        current_map: "{{ item }}"
+      loop: "{{ maps_to_process }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: map_results
+
+    - name: Show results
+      ansible.builtin.debug:
+        msg: "{{ item.msg | default('no msg') }}"
+      loop: "{{ map_results.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
