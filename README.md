@@ -72,5 +72,6 @@ Both posts were written from documentation first and corrected after running aga
 - `{URL.HOST}` is not a real Zabbix macro — it's stored and displayed literally rather than expanded; `{HOST.HOST}` and `{HOST.ID}` work
 - The `map.create` / `map.update` API endpoints reject non-empty `linktriggers` arrays in 7.4 (`Invalid parameter: should be empty`), so trigger-based link styling isn't usable there
 - `/var/lib/zabbix` must be owned by `zabbix:zabbix` for ICMP ping checks to work
+- The DOT `zbx_color="#0066CC"` link attribute is silently ignored — every link in the rendered map comes back as a uniform `#008000` regardless of the hex values set in `map_hosts.yaml`. The custom module's plain-YAML `color` field (no `#` prefix) is unaffected and renders the requested hex exactly, so this is a `community.zabbix`/DOT-template parsing quirk, not a Zabbix API limitation
 
 Full detail and context on each of these is in the [testing post](https://github.com/Sifungurux/tech-blog/blob/main/src/content/posts/05-06-2026-testing-zabbix-maps-as-code.md).
