@@ -54,13 +54,38 @@
         status: enabled
         state:  present
 
-    # Proxy group dummy hosts — no interfaces, represent proxy groups on the map
+    # Placeholder template — "Zabbix proxy group health" doesn't exist in the
+    # Zabbix 7.4 default template set, so the original post's example can't
+    # link to it as written. Created here as an empty template purely so
+    # link_templates / monitored_by / proxy_group can be exercised end to end.
+    - name: Ensure "Zabbix proxy group health" template exists
+      community.zabbix.zabbix_template:
+        template_name: "Zabbix proxy group health"
+        template_groups:
+          - "Templates"
+        state: present
+
+    - name: Ensure "zabbix-maps-test" proxy group exists
+      community.zabbix.zabbix_proxy_group:
+        name: "zabbix-maps-test"
+        description: "Placeholder proxy group for zabbix-maps-as-code testing"
+        state: present
+
+    # Proxy group dummy hosts — no agent interface, represent proxy groups on
+    # the map. Both are monitored via the single test proxy group above, which
+    # exercises the monitored_by / proxy_group parameters from the original post
+    # (that example was missing monitored_by and pointed at proxy groups that
+    # don't exist — both gaps are closed here).
     - name: Register proxy group dummy hosts
       community.zabbix.zabbix_host:
         host_name:    "{{ item.host }}"
         visible_name: "{{ item.label }}"
         host_groups:
           - "Zabbix proxy groups"
+        link_templates:
+          - "Zabbix proxy group health"
+        monitored_by: proxy_group
+        proxy_group:  "zabbix-maps-test"
         status: enabled
         state:  present
       loop:
