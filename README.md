@@ -49,7 +49,7 @@ Layout
 | Path | Purpose |
 |------|---------|
 | `lima/zabbix-maps-server.yaml` | Lima VM definition (Ubuntu 24.04 ARM64, 4 GiB RAM) |
-| `provision_zabbix.yml` | Installs Zabbix server + MariaDB via the [`ansible-zabbix`](https://github.com/Sifungurux/ansible-zabbix) role |
+| `provision_zabbix.yml` | Installs Zabbix server + MySQL via the [`ansible-zabbix`](https://github.com/Sifungurux/ansible-zabbix) role |
 | `setup_test_hosts.yml` | Registers a handful of test hosts in Zabbix via the API, so the maps have something to point at |
 | `map_hosts.yaml` / `templates/map_dot.j2` | Part 1: structured topology rendered to DOT |
 | `create_zabbix_maps.yml` | Part 1: builds the map with `community.zabbix.zabbix_map` |
