@@ -94,6 +94,18 @@ class ZabbixAPI:
             self.module.warn(f"Maps not found in Zabbix: {sorted(missing)}")
         return mapping
 
+    def resolve_hostgroups(self, names):
+        if not names:
+            return {}
+        result = self.call("hostgroup.get", {
+            "filter": {"name": names}, "output": ["groupid", "name"]
+        })
+        mapping = {g["name"]: g["groupid"] for g in result}
+        missing = set(names) - set(mapping)
+        if missing:
+            self.module.warn(f"Host groups not found in Zabbix: {sorted(missing)}")
+        return mapping
+
     def resolve_icons(self, names):
         if not names:
             return {}
@@ -154,12 +166,13 @@ def _resolve(val, mapping, default=0):
 
 
 def _collect_resources(map_def):
-    host_names, map_names, icon_names, trigger_specs = [], [], [], []
+    host_names, map_names, icon_names, trigger_specs, group_names = [], [], [], [], []
 
     for elem in map_def.get("elements", []):
         etype = elem.get("type", "host")
-        if etype == "host" and "host" in elem: host_names.append(elem["host"])
-        if etype == "map"  and "map"  in elem: map_names.append(elem["map"])
+        if etype == "host"      and "host"  in elem: host_names.append(elem["host"])
+        if etype == "map"       and "map"   in elem: map_names.append(elem["map"])
+        if etype == "hostgroup" and "group" in elem: group_names.append(elem["group"])
         for key in ("default", "problem", "maintenance", "disabled"):
             name = elem.get("icon", {}).get(key)
             if name:
@@ -180,16 +193,18 @@ def _collect_resources(map_def):
         list(dict.fromkeys(map_names)),
         list(dict.fromkeys(icon_names)),
         trigger_specs,
+        list(dict.fromkeys(group_names)),
     )
 
 
 def build_map_payload(map_def, api):
-    host_names, map_names, icon_names, trigger_specs = _collect_resources(map_def)
+    host_names, map_names, icon_names, trigger_specs, group_names = _collect_resources(map_def)
 
     host_map    = api.resolve_hosts(host_names)
     map_id_map  = api.resolve_maps(map_names)
     icon_map    = api.resolve_icons(icon_names)
     trigger_map = api.resolve_triggers(trigger_specs)
+    group_map   = api.resolve_hostgroups(group_names)
 
     local_to_selid = {}
     selements = []
@@ -217,6 +232,11 @@ def build_map_payload(map_def, api):
             mname = elem.get("map")
             selement["elements"] = (
                 [{"sysmapid": map_id_map[mname]}] if mname and mname in map_id_map else []
+            )
+        elif etype_int == 3:
+            gname = elem.get("group")
+            selement["elements"] = (
+                [{"groupid": group_map[gname]}] if gname and gname in group_map else []
             )
         else:
             selement["elements"] = []

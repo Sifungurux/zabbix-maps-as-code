@@ -45,6 +45,16 @@ maps:
           default: "Server_(48)"
           problem: "Server_(48)"
 
+      - id: linux_servers
+        type: hostgroup
+        group: "Linux servers"
+        label: "Linux Servers"
+        x: 980
+        y: 60
+        icon:
+          default: "Server_(48)"
+          problem: "Server_(48)"
+
     links:
       - from: postgresql
         to: zabbix_server
@@ -63,3 +73,9 @@ maps:
         label: "10051"
         color: "00AA00"
         drawtype: line
+
+      - from: linux_servers
+        to: zabbix_server
+        label: "monitored by"
+        color: "888888"
+        drawtype: dotted
