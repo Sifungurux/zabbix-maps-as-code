@@ -33,6 +33,14 @@
             ip:    "{{ zabbix_server_ip }}"
             dns:   ""
             port:  "10050"
+        # Monitored through the proxy group rather than directly — this is the
+        # correct place for monitored_by/proxy_group: a regular host whose
+        # checks are relayed by the HA proxy group on its segment. Setting these
+        # on proxy01/proxy02 themselves would route their checks through the
+        # same group their daemons belong to (circular — see finding #10 in the
+        # testing post).
+        monitored_by: proxy_group
+        proxy_group:  "zabbix-maps-test"
         status: enabled
         state:  present
 
