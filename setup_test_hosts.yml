@@ -71,12 +71,25 @@
         description: "Placeholder proxy group for zabbix-maps-as-code testing"
         state: present
 
-    # Proxy group dummy hosts — no agent interface, represent proxy groups on
+    # Earlier topology iterations registered these under different names
+    # (proxy-group-cph / proxy-group-aar). The VM persists across runs, so a
+    # straight rename in the loop below would leave the old hosts as orphans —
+    # remove them explicitly first.
+    - name: Remove superseded proxy host names from earlier topology iterations
+      community.zabbix.zabbix_host:
+        host_name: "{{ item }}"
+        state: absent
+      loop:
+        - "proxy-group-cph"
+        - "proxy-group-aar"
+      ignore_errors: true
+
+    # Proxy dummy hosts — no agent interface, represent individual proxies on
     # the map. Both are monitored via the single test proxy group above, which
     # exercises the monitored_by / proxy_group parameters from the original post
     # (that example was missing monitored_by and pointed at proxy groups that
     # don't exist — both gaps are closed here).
-    - name: Register proxy group dummy hosts
+    - name: Register proxy dummy hosts
       community.zabbix.zabbix_host:
         host_name:    "{{ item.host }}"
         visible_name: "{{ item.label }}"
@@ -89,8 +102,8 @@
         status: enabled
         state:  present
       loop:
-        - { host: "proxy-group-cph", label: "Proxy Group CPH" }
-        - { host: "proxy-group-aar", label: "Proxy Group AAR" }
+        - { host: "proxy01", label: "Proxy 01" }
+        - { host: "proxy02", label: "Proxy 02" }
 
     # VIP dummy hosts — ICMP interface at non-routable test IPs (will always be down)
     - name: Register VIP dummy hosts

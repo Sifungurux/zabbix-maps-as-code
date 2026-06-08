@@ -1,5 +1,10 @@
 # Map topology for the blog post test.
 # Host names here must match what setup_test_hosts.yml registers in Zabbix.
+#
+# Chain: PostgreSQL -> Database VIP -> Zabbix Server -> Proxy Group -> Proxy 01 / Proxy 02
+# The Proxy Group node is a host-group element (zbx_group), aggregating the
+# status of its two member hosts — also the first live test of that DOT
+# attribute (every other node here is a plain host element).
 
 maps:
   - name: "Zabbix Infrastructure"
@@ -12,37 +17,56 @@ maps:
         icon_default: "Disk_array_3D_(64)"
         icon_problem: "Disk_array_3D_(64)"
 
+      - name: "Database VIP"
+        type: host
+        zbx_ref: "vip-lb-prod"
+        icon_default: "Network_(48)"
+        icon_problem: "Network_(48)"
+
       - name: "Zabbix Server"
         type: host
         zbx_ref: "zabbix-server-01"
         icon_default: "Server_(64)"
         icon_problem: "Server_(64)"
 
-      - name: "Proxy Group CPH"
-        type: host
-        zbx_ref: "proxy-group-cph"
+      - name: "Proxy Group"
+        type: group
+        zbx_ref: "Zabbix proxy groups"
         icon_default: "Server_(48)"
         icon_problem: "Server_(48)"
 
-      - name: "Proxy Group AAR"
+      - name: "Proxy 01"
         type: host
-        zbx_ref: "proxy-group-aar"
+        zbx_ref: "proxy01"
+        icon_default: "Server_(48)"
+        icon_problem: "Server_(48)"
+
+      - name: "Proxy 02"
+        type: host
+        zbx_ref: "proxy02"
         icon_default: "Server_(48)"
         icon_problem: "Server_(48)"
 
     links:
       - from: "PostgreSQL"
-        to: "Zabbix Server"
+        to: "Database VIP"
         label: "5432"
         draw_style: bold
         color: "#0066CC"
 
+      - from: "Database VIP"
+        to: "Zabbix Server"
+        color: "#0066CC"
+
       - from: "Zabbix Server"
-        to: "Proxy Group CPH"
+        to: "Proxy Group"
         label: "10051"
         color: "#00AA00"
 
-      - from: "Zabbix Server"
-        to: "Proxy Group AAR"
-        label: "10051"
+      - from: "Proxy Group"
+        to: "Proxy 01"
+        color: "#00AA00"
+
+      - from: "Proxy Group"
+        to: "Proxy 02"
         color: "#00AA00"
