@@ -83,6 +83,21 @@ done
 [ -z "$ZABBIX_IP" ] && { echo "ERROR: could not get IP for $ZABBIX_VM after 60s"; exit 1; }
 echo "    $ZABBIX_VM -> $ZABBIX_IP"
 
+# Reused below for the proxy VMs — same shared-network IP discovery as above,
+# just generalised to take a VM name so it isn't repeated per-VM.
+discover_vm_ip() {
+  local vm_name="$1" ip=""
+  for i in $(seq 1 30); do
+    ip=$(limactl shell "$vm_name" -- \
+      ip -4 route get 192.168.105.1 2>/dev/null \
+      | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1); exit}' || true)
+    [ -n "$ip" ] && break
+    sleep 2
+  done
+  [ -z "$ip" ] && { echo "ERROR: could not get IP for $vm_name after 60s" >&2; exit 1; }
+  echo "$ip"
+}
+
 SSH_KEY="$HOME/.lima/_config/user"
 SSH_USER="$(whoami)"
 
@@ -169,6 +184,60 @@ if [ "$MAPS_ONLY" != "maps-only" ]; then
         --skip-tags repo \
         "$SCRIPT_DIR/provision_zabbix.yml"
   fi
+
+  # ── Proxy VMs: two dedicated Lima VMs, each running a real zabbix-proxy ──────
+  # These back the "zabbix-maps-test" proxy group referenced by the maps — see
+  # provision_zabbix_proxies.yml for why they need to be real, connected proxies
+  # rather than just dummy hosts.
+
+  for proxy_vm in zabbix-proxy01 zabbix-proxy02; do
+    if limactl list "$proxy_vm" --format '{{.Status}}' 2>/dev/null | grep -q "Running"; then
+      echo "==> Reusing running Lima VM: $proxy_vm"
+    else
+      echo "==> Starting Lima VM: $proxy_vm"
+      limactl start --tty=false --name="$proxy_vm" "$SCRIPT_DIR/lima/${proxy_vm}.yaml"
+    fi
+  done
+
+  echo "==> Waiting for proxy VM IPs on shared network..."
+  PROXY01_IP="$(discover_vm_ip zabbix-proxy01)"
+  echo "    zabbix-proxy01 -> $PROXY01_IP"
+  PROXY02_IP="$(discover_vm_ip zabbix-proxy02)"
+  echo "    zabbix-proxy02 -> $PROXY02_IP"
+
+  cat >> "$SCRIPT_DIR/inventory.ini" <<EOF
+
+# SSH — used by provision_zabbix_proxies.yml only
+[ZABBIX_PROXIES]
+proxy01 ansible_host=${PROXY01_IP}
+proxy02 ansible_host=${PROXY02_IP}
+
+[ZABBIX_PROXIES:vars]
+ansible_connection=ssh
+ansible_user=${SSH_USER}
+ansible_ssh_private_key_file=${SSH_KEY}
+ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+ansible_become=true
+ansible_python_interpreter=/usr/bin/python3
+EOF
+
+  echo "==> Provisioning Zabbix proxy daemons..."
+  echo "    Step 1: bootstrap Python3 via limactl on both proxy VMs"
+  limactl shell zabbix-proxy01 -- sudo apt-get install -y python3
+  limactl shell zabbix-proxy02 -- sudo apt-get install -y python3
+
+  echo "    Step 2: install + register zabbix-proxy daemons via ansible-zabbix role"
+  # Same --skip-tags repo workaround as provision_zabbix.yml, plus proxy.add:
+  # the role's built-in registration task can't set proxy_group/local_address
+  # and delegates to an inventory alias ("zabbix-api") this harness doesn't
+  # have — provision_zabbix_proxies.yml registers the proxies itself instead.
+  ANSIBLE_ROLES_PATH="$HOME/development" \
+    ansible-playbook -i "$SCRIPT_DIR/inventory.ini" \
+      -e "zabbix_server_ip=${ZABBIX_IP}" \
+      -e "proxy01_ip=${PROXY01_IP}" \
+      -e "proxy02_ip=${PROXY02_IP}" \
+      --skip-tags repo,proxy.add \
+      "$SCRIPT_DIR/provision_zabbix_proxies.yml"
 
   # ── Register test hosts in Zabbix ────────────────────────────────────────────
 

@@ -1,7 +1,7 @@
 Zabbix Maps as Code — Test Scaffold
 ===================================
 
-A self-contained Ansible test harness for the [Zabbix Maps as Code](https://github.com/Sifungurux/tech-blog) blog series. It spins up a Lima VM, installs Zabbix 7.4, and exercises both approaches to managing Zabbix network maps from the posts:
+A self-contained Ansible test harness for the [Zabbix Maps as Code](https://github.com/Sifungurux/tech-blog) blog series. It spins up three Lima VMs — a Zabbix server and two real `zabbix-proxy` daemons feeding a proxy group — installs Zabbix 7.4, and exercises both approaches to managing Zabbix network maps from the posts:
 
 - **Part 1** — [`community.zabbix.zabbix_map`](https://docs.ansible.com/ansible/latest/collections/community/zabbix/zabbix_map_module.html), driven from a structured `map_hosts.yaml` rendered to DOT via a Jinja2 template
 - **Part 2** — a custom module, [`zabbix_map_from_yaml`](library/zabbix_map_from_yaml.py), that talks to the Zabbix API directly from a plain YAML map definition
@@ -29,7 +29,7 @@ Running the tests
 ./run.sh maps-only  # skip provisioning — just (re)run the Part 1 maps playbook against an already-running VM
 ```
 
-A cold run takes around ten minutes, most of it spent installing and configuring the Zabbix server package. `run.sh` writes `inventory.ini` and `group_vars/all/zabbix.yml` with the VM's actual IP each time it runs, so both files are generated artifacts rather than fixed config.
+A cold run takes around fifteen minutes — three VMs to boot and provision, most of it spent installing and configuring the Zabbix server package. `run.sh` writes `inventory.ini` and `group_vars/all/zabbix.yml` with each VM's actual IP every time it runs, so both files are generated artifacts rather than fixed config.
 
 To exercise the **Part 2** custom module against the same VM:
 
@@ -48,8 +48,10 @@ Layout
 
 | Path | Purpose |
 |------|---------|
-| `lima/zabbix-maps-server.yaml` | Lima VM definition (Ubuntu 24.04 ARM64, 4 GiB RAM) |
+| `lima/zabbix-maps-server.yaml` | Lima VM definition for the Zabbix server (Ubuntu 24.04 ARM64, 4 GiB RAM) |
+| `lima/zabbix-proxy01.yaml` / `zabbix-proxy02.yaml` | Lima VM definitions for the two proxy daemons (Ubuntu 24.04 ARM64, 1 GiB RAM each) |
 | `provision_zabbix.yml` | Installs Zabbix server + MySQL via the [`ansible-zabbix`](https://github.com/Sifungurux/ansible-zabbix) role |
+| `provision_zabbix_proxies.yml` | Installs real `zabbix-proxy` daemons on the two proxy VMs and registers them as Proxy objects in the `zabbix-maps-test` proxy group |
 | `setup_test_hosts.yml` | Registers a handful of test hosts in Zabbix via the API, so the maps have something to point at |
 | `map_hosts.yaml` / `templates/map_dot.j2` | Part 1: structured topology rendered to DOT |
 | `create_zabbix_maps.yml` | Part 1: builds the map with `community.zabbix.zabbix_map` |

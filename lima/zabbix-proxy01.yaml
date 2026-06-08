@@ -1,0 +1,19 @@
+vmType: vz
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: aarch64
+
+cpus: 1
+memory: "1GiB"
+disk: "10GiB"
+
+networks:
+  - vzNAT: true
+  - lima: shared
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      hostnamectl set-hostname proxy01

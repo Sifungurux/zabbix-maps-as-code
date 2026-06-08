@@ -1,0 +1,78 @@
+---
+# Installs real zabbix-proxy daemons on the two dedicated proxy Lima VMs and
+# registers them as genuine Proxy objects in the "zabbix-maps-test" proxy
+# group — so that group (referenced by map_hosts.yaml / maps_custom.yaml via
+# the "Zabbix proxy groups" host group element) actually has connected members,
+# rather than being an empty placeholder.
+#
+# lima/zabbix-proxy0N.yaml sets each VM's hostname to proxy01/proxy02, which
+# becomes ansible_fqdn — the role's proxy.conf template uses that as both the
+# daemon's Hostname and (if proxy.add ran) the registered proxy_name. We skip
+# proxy.add and register explicitly below so we can also set proxy_group and
+# local_address, which the role's built-in task doesn't support.
+#
+# Same ubuntu24.04/26.04 repo package mismatch as provision_zabbix.yml — fixed
+# the same way (pre_tasks install the correct .deb, --skip-tags repo).
+#
+# run.sh sets ANSIBLE_ROLES_PATH=$HOME/development and passes zabbix_server_ip
+# plus proxy01_ip/proxy02_ip (each VM's own address, used as local_address so
+# other components know how to reach this specific proxy within its group).
+
+- name: Install Zabbix proxy daemons on Lima VMs
+  hosts: ZABBIX_PROXIES
+  become: true
+  gather_facts: true
+
+  vars:
+    zabbix_function: proxy
+    zabbix_version:  "7.4"
+    zabbix_server:   "{{ zabbix_server_ip }}"
+
+  pre_tasks:
+    - name: Install apt prerequisites
+      ansible.builtin.apt:
+        name: curl
+        state: present
+
+    - name: Remove any mismatched Zabbix release package (may be wrong Ubuntu version)
+      ansible.builtin.apt:
+        name: zabbix-release
+        state: absent
+      ignore_errors: true
+
+    - name: Install Zabbix {{ zabbix_version }} repo package for Ubuntu {{ ansible_distribution_version }}
+      ansible.builtin.apt:
+        deb: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/release/ubuntu/pool/main/z/zabbix-release/zabbix-release_{{ zabbix_version }}-1+ubuntu{{ ansible_distribution_version }}_all.deb"
+
+    - name: Update apt cache after adding Zabbix repo
+      ansible.builtin.apt:
+        update_cache: true
+
+  roles:
+    - role: ansible-zabbix
+
+- name: Register proxy daemons as real Proxy objects
+  hosts: ZABBIX_API
+  gather_facts: false
+
+  vars:
+    proxies:
+      - { name: "proxy01", ip: "{{ proxy01_ip }}" }
+      - { name: "proxy02", ip: "{{ proxy02_ip }}" }
+
+  tasks:
+    - name: Ensure "zabbix-maps-test" proxy group exists
+      community.zabbix.zabbix_proxy_group:
+        name: "zabbix-maps-test"
+        description: "Proxies feeding the zabbix-maps-as-code test maps"
+        state: present
+
+    - name: Register proxy01/proxy02 and assign them to the proxy group
+      community.zabbix.zabbix_proxy:
+        proxy_name:     "{{ item.name }}"
+        description:    "{{ item.name }} (zabbix-maps-as-code test)"
+        operating_mode: active
+        proxy_group:    "zabbix-maps-test"
+        local_address:  "{{ item.ip }}"
+        state: present
+      loop: "{{ proxies }}"
